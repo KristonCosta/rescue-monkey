@@ -172,6 +172,18 @@ impl Expression {
             _ => None,
         }
     }
+    pub fn get_hash(&self) -> Option<&HashLiteral> {
+        match &self.inner {
+            ExpressionEnum::HashLiteral(l) => Some(l),
+            _ => None,
+        }
+    }
+    pub fn get_array(&self) -> Option<&ArrayLiteral> {
+        match &self.inner {
+            ExpressionEnum::ArrayLiteral(l) => Some(l),
+            _ => None,
+        }
+    }
 }
 
 #[readonly::make]

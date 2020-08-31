@@ -5,7 +5,6 @@ use crate::ast::Index;
 use crate::ast::Infix;
 use crate::ast::Let;
 use crate::ast::Prefix;
-use crate::ast::While;
 use crate::lexer::TokenStream;
 use crate::{
     ast::{self, Identifier, Program},
@@ -15,7 +14,6 @@ use ast::{
     BlockStatement, Expression, FunctionLiteral, HashLiteral, Operator, Statement, StatementEnum,
     ValueExpression,
 };
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum ParserError {
@@ -222,6 +220,7 @@ impl Parser {
             None => return None,
         };
         let mut statements = Vec::new();
+        self.tokens.next();
         loop {
             if self.tokens.current_is(TokenType::RBrace) {
                 break;
@@ -234,6 +233,7 @@ impl Parser {
                 return None;
             }
             statements.push(self.parse_statement());
+            self.tokens.next();
         }
         return Some(statements.into_iter().filter_map(|x| x).collect());
     }
@@ -399,7 +399,7 @@ impl Parser {
     pub fn parse_string(&mut self, tok: Token) -> Option<Expression> {
         Some(Expression::new(
             tok.clone(),
-            ast::ExpressionEnum::Identifier(Identifier::new(tok.literal().to_string())),
+            ast::ExpressionEnum::StringLiteral(ValueExpression::new(tok.literal().to_string())),
         ))
     }
 
@@ -440,7 +440,6 @@ impl Parser {
         if !self.expect_peek_and_consume(TokenType::LParen) {
             return None;
         }
-        self.tokens.next();
         let condition = match self.parse_expression(Precedence::Bottom) {
             None => return None,
             Some(expr) => expr,
@@ -501,7 +500,7 @@ impl Parser {
             None => return None,
             Some(x) => x,
         };
-        let identifiers = Vec::with_capacity(args.len());
+        let mut identifiers = Vec::with_capacity(args.len());
         for arg in args.into_iter() {
             match arg.inner {
                 ast::ExpressionEnum::Identifier(ident) => identifiers.push(ident),
@@ -542,6 +541,7 @@ impl Parser {
             if self.tokens.peek_is(TokenType::RBrace) {
                 break;
             }
+            self.tokens.next();
             let key = match self.parse_expression(Precedence::Bottom) {
                 None => return None,
                 Some(x) => x,
@@ -752,5 +752,235 @@ mod tests {
             assert_eq!(prefix.operator, Operator::parse(op.to_string()));
             assert_eq!(prefix.left.get_integer().unwrap().value, *val);
         }
+    }
+
+    #[test]
+    fn test_hash_literal_parsing() {
+        let line = r#"
+        {"one": 1, "two": 2, "three": 3}
+        "#;
+        let expected = [("one", 1), ("two", 2), ("three", 3)];
+        let program = run_test(line);
+        assert_eq!(program.statements.len(), 1);
+
+        let hash_literal = program.statements[0]
+            .get_expr()
+            .unwrap()
+            .get_hash()
+            .unwrap();
+        for (index, (exp_key, exp_val)) in expected.iter().enumerate() {
+            let (key, value) = &hash_literal.pairs[index];
+            assert_eq!(key.get_string().unwrap().value, *exp_key);
+            assert_eq!(value.get_integer().unwrap().value, *exp_val);
+        }
+    }
+
+    #[test]
+    fn test_empty_hash_parsing() {
+        let line = "{}";
+        let program = run_test(line);
+        assert_eq!(program.statements.len(), 1);
+
+        let statement = program.statements[0].get_expr().unwrap();
+        let hash_literal = statement.get_hash().unwrap();
+        assert_eq!(hash_literal.pairs.len(), 0);
+    }
+
+    #[test]
+    fn test_while_expression_parsing() {
+        let line = "while { true; }";
+        let program = run_test(line);
+        assert_eq!(program.statements.len(), 1);
+        let while_stmt = program.statements[0]
+            .get_expr()
+            .unwrap()
+            .get_while()
+            .unwrap();
+
+        assert_eq!(while_stmt.len(), 1);
+        assert_eq!(
+            while_stmt[0].get_expr().unwrap().get_bool().unwrap().value,
+            true
+        );
+    }
+
+    #[test]
+    fn test_if_expression_parsing() {
+        let line = "if (x < y) { x }";
+        let program = run_test(line);
+
+        assert_eq!(program.statements.len(), 1);
+        let if_stmt = program.statements[0].get_expr().unwrap().get_if().unwrap();
+
+        let condition = if_stmt.condition.get_infix().unwrap();
+        assert_eq!(condition.left.get_identifier().unwrap().value, "x");
+        assert_eq!(condition.right.get_identifier().unwrap().value, "y");
+        assert_eq!(condition.op, Operator::parse("<".to_string()));
+
+        assert_eq!(
+            if_stmt.true_statement[0]
+                .get_expr()
+                .unwrap()
+                .get_identifier()
+                .unwrap()
+                .value,
+            "x"
+        );
+    }
+
+    #[test]
+    fn test_if_else_parsing() {
+        let line = "if (x > y) { w } else { z; q }";
+        let program = run_test(line);
+
+        assert_eq!(program.statements.len(), 1);
+        let if_expr = program.statements[0].get_expr().unwrap().get_if().unwrap();
+        let condition = if_expr.condition.get_infix().unwrap();
+        let left = if_expr.true_statement[0]
+            .get_expr()
+            .unwrap()
+            .get_identifier()
+            .unwrap();
+        let right = if_expr.false_statement.as_ref().unwrap();
+
+        assert_eq!(condition.op, Operator::parse(">".to_string()));
+        assert_eq!(condition.left.get_identifier().unwrap().value, "x");
+        assert_eq!(condition.right.get_identifier().unwrap().value, "y");
+
+        assert_eq!(left.value, "w");
+
+        assert_eq!(right.len(), 2);
+        assert_eq!(
+            right[0].get_expr().unwrap().get_identifier().unwrap().value,
+            "z"
+        );
+        assert_eq!(
+            right[1].get_expr().unwrap().get_identifier().unwrap().value,
+            "q"
+        );
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let line = "fn(x, y) { x + y }";
+        let program = run_test(line);
+
+        assert_eq!(program.statements.len(), 1);
+
+        let func_stmt = program.statements[0]
+            .get_expr()
+            .unwrap()
+            .get_function_literal()
+            .unwrap();
+        assert_eq!(func_stmt.identifiers.len(), 2);
+
+        assert_eq!(func_stmt.identifiers[0].value, "x");
+        assert_eq!(func_stmt.identifiers[1].value, "y");
+
+        assert_eq!(func_stmt.block.len(), 1);
+
+        let infx = func_stmt.block[0].get_expr().unwrap().get_infix().unwrap();
+        assert_eq!(infx.left.get_identifier().unwrap().value, "x");
+        assert_eq!(infx.right.get_identifier().unwrap().value, "y");
+        assert_eq!(infx.op, Operator::parse("+".to_string()));
+    }
+
+    #[test]
+    fn test_call_expression_parsing() {
+        let line = "add(1, 2 * 3, 4 + 5);";
+        let program = run_test(line);
+        assert_eq!(program.statements.len(), 1);
+
+        let call_stmt = program.statements[0]
+            .get_expr()
+            .unwrap()
+            .get_call()
+            .unwrap();
+
+        assert_eq!(call_stmt.args.len(), 3);
+        let first = call_stmt.args[0].get_integer().unwrap();
+        let second = call_stmt.args[1].get_infix().unwrap();
+        let third = call_stmt.args[2].get_infix().unwrap();
+
+        assert_eq!(first.value, 1);
+        assert_eq!(second.op, Operator::parse("*".to_string()));
+        assert_eq!(second.left.get_integer().unwrap().value, 2);
+        assert_eq!(second.right.get_integer().unwrap().value, 3);
+
+        assert_eq!(third.op, Operator::parse("+".to_string()));
+        assert_eq!(third.left.get_integer().unwrap().value, 4);
+        assert_eq!(third.right.get_integer().unwrap().value, 5);
+    }
+
+    #[test]
+    fn test_sting_parsing() {
+        let line = r#"let x = "test 123";"#;
+        let program = run_test(line);
+        assert_eq!(program.statements.len(), 1);
+
+        let let_stmt = program.statements[0].get_let().unwrap();
+        assert_eq!(let_stmt.identifier.value, "x");
+        assert_eq!(
+            let_stmt.expr.as_ref().unwrap().get_string().unwrap().value,
+            "test 123"
+        );
+    }
+
+    #[test]
+    fn test_array_parsing() {
+        let line = "[3, 4, 5 + 6, fn(x) { x; }];";
+        let program = run_test(line);
+        assert_eq!(program.statements.len(), 1);
+
+        let array_lit = program.statements[0]
+            .get_expr()
+            .unwrap()
+            .get_array()
+            .unwrap();
+        assert_eq!(array_lit.elements.len(), 4);
+
+        assert_eq!(array_lit.elements[0].get_integer().unwrap().value, 3);
+        assert_eq!(array_lit.elements[1].get_integer().unwrap().value, 4);
+        let infix = array_lit.elements[2].get_infix().unwrap();
+        assert_eq!(infix.left.get_integer().unwrap().value, 5);
+        assert_eq!(infix.right.get_integer().unwrap().value, 6);
+        assert_eq!(infix.op, Operator::parse("+".to_string()));
+
+        let fnc = array_lit.elements[3].get_function_literal().unwrap();
+        assert_eq!(fnc.identifiers.len(), 1);
+        assert_eq!(fnc.block.len(), 1);
+
+        assert_eq!(fnc.identifiers[0].value, "x");
+        assert_eq!(
+            fnc.block[0]
+                .get_expr()
+                .unwrap()
+                .get_identifier()
+                .unwrap()
+                .value,
+            "x"
+        );
+    }
+
+    #[test]
+    fn test_index_expression_parsing() {
+        let line = "someArray[3+1];";
+        let program = run_test(line);
+        assert_eq!(program.statements.len(), 1);
+
+        let index_expr = program.statements[0]
+            .get_expr()
+            .unwrap()
+            .get_index()
+            .unwrap();
+
+        let infx = index_expr.index.get_infix().unwrap();
+        assert_eq!(infx.left.get_integer().unwrap().value, 3);
+        assert_eq!(infx.right.get_integer().unwrap().value, 1);
+        assert_eq!(infx.op, Operator::parse("+".to_string()));
+        assert_eq!(
+            index_expr.indexable.get_identifier().unwrap().value,
+            "someArray"
+        );
     }
 }
