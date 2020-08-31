@@ -11,6 +11,7 @@ mod parser;
 mod token;
 
 use lexer::TokenStream;
+use parser::printer::ASTPrinter;
 use std::io;
 use std::io::BufRead;
 
@@ -26,13 +27,11 @@ fn main() {
                 let tokens = TokenStream::from_string(&line);
                 let parser = &mut parser::parser::Parser::new(tokens);
                 let program = parser.parse();
-
-                for statement in &program.statements {
-                    println!("{:#?}", statement);
-                }
-                for error in parser.errors() {
-                    println!("ERROR: {:#?}", error);
-                }
+                let mut file = Vec::new();
+                let printer = ASTPrinter::new(file);
+                let res = printer.print(&program);
+                let s = String::from_utf8_lossy(res.as_slice());
+                println!("{}", s);
                 line.pop();
             }
             Err(e) => {

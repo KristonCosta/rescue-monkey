@@ -11,6 +11,12 @@ impl Operator {
     pub fn parse(literal: String) -> Self {
         Operator::Op(literal)
     }
+
+    pub fn value(&self) -> &String {
+        match self {
+            Operator::Op(val) => val,
+        }
+    }
 }
 #[readonly::make]
 #[derive(Debug)]
