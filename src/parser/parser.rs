@@ -381,7 +381,7 @@ impl Parser {
     pub fn parse_integer_literal(&mut self, tok: Token) -> Option<Expression> {
         let int_lit = match tok.literal().parse::<i64>() {
             Ok(n) => n,
-            Err(e) => {
+            Err(_e) => {
                 self.errors.push(ParserError::TypeParse {
                     literal: tok.literal().to_string(),
                     desired_type: "i64".to_string(),
@@ -406,7 +406,7 @@ impl Parser {
     pub fn parse_boolean(&mut self, tok: Token) -> Option<Expression> {
         let bool_lit = match tok.literal().parse::<bool>() {
             Ok(n) => n,
-            Err(e) => {
+            Err(_e) => {
                 self.errors.push(ParserError::TypeParse {
                     literal: tok.literal().to_string(),
                     desired_type: "bool".to_string(),

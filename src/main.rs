@@ -2,8 +2,6 @@
 extern crate lazy_static;
 #[macro_use]
 extern crate derive_new;
-#[macro_use]
-extern crate readonly;
 
 mod ast;
 mod lexer;
@@ -19,7 +17,7 @@ fn main() {
     let stream = io::stdin();
     let mut reader = stream.lock();
     let mut line = String::new();
-    let mut running = true;
+    let running = true;
 
     while running {
         match reader.read_line(&mut line) {
@@ -27,7 +25,7 @@ fn main() {
                 let tokens = TokenStream::from_string(&line);
                 let parser = &mut parser::parser::Parser::new(tokens);
                 let program = parser.parse();
-                let mut file = Vec::new();
+                let file = Vec::new();
                 let printer = ASTPrinter::new(file);
                 let res = printer.print(&program);
                 let s = String::from_utf8_lossy(res.as_slice());

@@ -1,5 +1,4 @@
 use crate::token::Token;
-use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, PartialEq)]
@@ -34,18 +33,8 @@ impl Program {
     pub fn add_statement(&mut self, statement: Statement) {
         self.statements.push(statement);
     }
-
-    pub fn get_statements(&self) -> &Vec<Statement> {
-        &self.statements
-    }
 }
 
-#[derive(Debug)]
-enum NodeEnum {
-    Expression(Expression),
-    Statement(Statement),
-    Program(Program),
-}
 #[derive(Debug)]
 pub struct Expression {
     pub token: Token,

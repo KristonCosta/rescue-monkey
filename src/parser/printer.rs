@@ -1,6 +1,6 @@
 use crate::ast::Expression;
 use crate::ast::Program;
-use crate::ast::{BlockStatement, Operator, Statement};
+use crate::ast::{BlockStatement, Statement};
 use std::cmp::max;
 use std::io::Write;
 
@@ -29,7 +29,8 @@ impl<T: Write + Sized> ASTPrinter<T> {
 
     pub fn write(&mut self, str: &str) {
         self.writer
-            .write_all(" ".repeat(self.indent_level * self.padding).as_bytes());
+            .write_all(" ".repeat(self.indent_level * self.padding).as_bytes())
+            .expect("failed to write to writer");
         self.writer.write_all(str.as_bytes()).unwrap();
     }
 
