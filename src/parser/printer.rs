@@ -28,20 +28,27 @@ impl<T: Write + Sized> ASTPrinter<T> {
     }
 
     pub fn write(&mut self, str: &str) {
-        self.writer
-            .write_all(" ".repeat(self.indent_level * self.padding).as_bytes())
-            .expect("failed to write to writer");
         self.writer.write_all(str.as_bytes()).unwrap();
+    }
+
+    pub fn newline(&mut self) {
+        self.write(
+            &[
+                "\n".to_string(),
+                " ".repeat(self.indent_level * self.padding),
+            ]
+            .join(""),
+        );
     }
 
     pub fn print(mut self, program: &Program) -> T {
         for statement in program.statements.iter() {
-            self.visit_statement(statement);
+            self.visit_statement(statement, true);
         }
         self.writer
     }
 
-    pub fn visit_statement(&mut self, statement: &Statement) {
+    pub fn visit_statement(&mut self, statement: &Statement, newline: bool) {
         match &statement.inner {
             crate::ast::StatementEnum::Return(expr) => {
                 self.write(statement.token.literal());
@@ -73,17 +80,25 @@ impl<T: Write + Sized> ASTPrinter<T> {
                 }
             },
         }
+        if newline {
+            self.newline();
+            self.newline();
+        }
     }
 
     fn visit_block_statement(&mut self, statements: &BlockStatement) {
-        self.write("{\n");
-        self.indent();
-
-        for statement in statements {
-            self.visit_statement(statement);
+        self.write("{");
+        for (index, statement) in statements.iter().enumerate() {
+            if index == 0 {
+                self.indent();
+            }
+            self.newline();
+            self.visit_statement(statement, false);
+            if index == statements.len() - 1 {
+                self.dedent();
+                self.newline();
+            }
         }
-        self.dedent();
-        self.write("\n");
         self.write("}");
     }
 
@@ -91,7 +106,11 @@ impl<T: Write + Sized> ASTPrinter<T> {
         match &expression.inner {
             crate::ast::ExpressionEnum::Identifier(val) => self.write(&val.value),
             crate::ast::ExpressionEnum::IntegerLiteral(val) => self.write(&val.value.to_string()),
-            crate::ast::ExpressionEnum::StringLiteral(val) => self.write(&val.value),
+            crate::ast::ExpressionEnum::StringLiteral(val) => {
+                self.write("\"");
+                self.write(&val.value);
+                self.write("\"");
+            }
             crate::ast::ExpressionEnum::ArrayLiteral(val) => {
                 self.write("[");
                 for (index, element) in val.elements.iter().enumerate() {
@@ -138,9 +157,9 @@ impl<T: Write + Sized> ASTPrinter<T> {
                 self.write("])");
             }
             crate::ast::ExpressionEnum::If(expr) => {
-                self.write("if ");
+                self.write("if (");
                 self.visit_expression(&expr.condition);
-                self.write(" ");
+                self.write(") ");
                 self.visit_block_statement(&expr.true_statement);
                 if let Some(false_statement) = &expr.false_statement {
                     self.write(" else ");

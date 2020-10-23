@@ -105,10 +105,10 @@ impl Lexer {
     fn extract_while(&mut self, condition: fn(c: &char) -> bool) -> String {
         let mut chars = vec![];
         loop {
-            chars.push(self.read());
             if !condition(&self.tok) {
                 break;
             }
+            chars.push(self.read());
         }
         chars.into_iter().collect()
     }
@@ -679,6 +679,67 @@ mod tests {
             Pair {
                 _type: TokenType::Semicolon,
                 literal: ";".to_string(),
+            },
+            Pair {
+                _type: TokenType::EndOfFile,
+                literal: '\0'.to_string(),
+            },
+        ];
+        run_test(input, expected);
+    }
+    #[test]
+    fn test_if_and_empty_string() {
+        let input = r#"
+            if (true) {
+                "" 
+            } else {
+                false
+            }
+        "#;
+        let expected = vec![
+            Pair {
+                _type: TokenType::If,
+                literal: "if".to_string(),
+            },
+            Pair {
+                _type: TokenType::LParen,
+                literal: "(".to_string(),
+            },
+            Pair {
+                _type: TokenType::True,
+                literal: "true".to_string(),
+            },
+            Pair {
+                _type: TokenType::RParen,
+                literal: ")".to_string(),
+            },
+            Pair {
+                _type: TokenType::LBrace,
+                literal: "{".to_string(),
+            },
+            Pair {
+                _type: TokenType::String,
+                literal: "".to_string(),
+            },
+            Pair {
+                _type: TokenType::RBrace,
+                literal: "}".to_string(),
+            },
+            Pair {
+                _type: TokenType::Else,
+                literal: "else".to_string(),
+            },
+            Pair {
+                _type: TokenType::LBrace,
+                literal: "{".to_string(),
+            },
+            Pair {
+                _type: TokenType::False,
+                literal: "false".to_string(),
+            },
+            Pair {
+                _type: TokenType::RBrace,
+                literal: "}".to_string(),
             },
             Pair {
                 _type: TokenType::EndOfFile,
