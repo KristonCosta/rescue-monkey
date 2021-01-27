@@ -42,8 +42,9 @@ impl<T: Write + Sized> ASTPrinter<T> {
     }
 
     pub fn print(mut self, program: &Program) -> T {
-        for statement in program.statements.iter() {
-            self.visit_statement(statement, true);
+        let num_statements = program.statements.len();
+        for (index, statement) in program.statements.iter().enumerate() {
+            self.visit_statement(statement, (index + 1) != num_statements);
         }
         self.writer
     }
