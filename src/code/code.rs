@@ -2,22 +2,20 @@ use std::collections::HashMap;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum Instruction {
-    Constant(usize),
+    Negate,
+
     Add,
-    Sub,
-    Mul,
-    Div,
-    Pop,
-    Null,
+    Subtract,
+    Multiply,
+    Divide,
+
     True,
     False,
-    Eq,
-    NEq,
-    GT,
-    Bang,
-    Negate,
-    JumpIfNot(usize),
-    Jump(usize),
+    Nil,
+
+    Constant(usize),
+
+    Return,
 }
 
 impl Instruction {}

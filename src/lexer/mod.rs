@@ -1,3 +1,3 @@
 mod lexer;
 
-pub use lexer::TokenStream;
+pub use lexer::Scanner;

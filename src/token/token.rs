@@ -1,50 +1,53 @@
-use crate::token::TokenType::Ident;
-use std::collections::HashMap;
 use std::fmt;
 
-lazy_static! {
-    static ref KEYWORDS: HashMap<String, TokenType> = {
-        let mut m = HashMap::new();
-        m.insert("fn".to_owned(), TokenType::Function);
-        m.insert("let".to_owned(), TokenType::Let);
-        m.insert("true".to_owned(), TokenType::True);
-        m.insert("false".to_owned(), TokenType::False);
-        m.insert("if".to_owned(), TokenType::If);
-        m.insert("else".to_owned(), TokenType::Else);
-        m.insert("return".to_owned(), TokenType::Return);
-        m.insert("while".to_owned(), TokenType::While);
-        m
-    };
+#[derive(Debug)]
+pub enum TokenError {
+    InvalidTokenTypeForValue(TokenType),
 }
 
+#[readonly::make]
 #[derive(Clone, Debug)]
 pub struct Token {
-    _type: TokenType,
-    literal: String,
+    pub _type: TokenType,
+    pub line: u64,
 }
 
 impl Token {
-    pub fn new(_type: TokenType, literal: String) -> Self {
-        Token { _type, literal }
+    pub fn new(_type: TokenType, line: u64) -> Self {
+        Token { _type, line }
     }
 
-    pub fn from_literal(literal: String) -> Self {
-        let _type = TokenType::from_literal(&literal);
-        Token { _type, literal }
+    pub fn from_literal(literal: String, line: u64) -> Self {
+        let _type = TokenType::from_literal(literal);
+        Token { _type, line }
     }
 
     pub fn token_type(&self) -> &TokenType {
         &self._type
     }
 
-    pub fn literal(&self) -> &String {
-        &self.literal
+    pub fn is_value_type(&self) -> bool {
+        match self._type {
+            TokenType::Identifier(_) => true,
+            TokenType::String(_) => true,
+            TokenType::Number(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn value(&self) -> Result<&String, TokenError> {
+        match &self._type {
+            TokenType::Identifier(value) => Ok(value),
+            TokenType::String(value) => Ok(value),
+            TokenType::Number(value) => Ok(value),
+            _ => Err(TokenError::InvalidTokenTypeForValue(self._type.clone())),
+        }
     }
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[token type={}, literal={}]", self._type, self.literal)
+        write!(f, "[token type={}]", self._type)
     }
 }
 
@@ -53,61 +56,73 @@ pub struct Location {
     column: i32,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TokenType {
-    // Info types
-    Illegal,
-    EndOfFile,
-
-    // Identifiers and literals
-    Ident,
-    Integer,
-    String,
-
-    // Ops
-    Assign,
-    Plus,
-    Minus,
-    Bang,
-    Asterisk,
-    Slash,
-
-    LT,
-    GT,
-    EQ,
-    NE,
-
-    // Delimiters
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
     Comma,
+    Dot,
+    Minus,
+    Plus,
     Semicolon,
-    Colon,
+    Slash,
+    Star,
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
 
-    // Syntax
-    LParen,
-    RParen,
-    LBrace,
-    RBrace,
-    LBracket,
-    RBracket,
+    Identifier(String),
+    String(String),
+    Number(String),
 
-    // Keywords
-    Function,
-    Let,
-    True,
-    False,
+    And,
+    Class,
     If,
     Else,
+    Function,
+    For,
+    Nil,
+    Or,
+    Print,
     Return,
+    Super,
+    This,
+    True,
+    False,
+    Var,
     While,
+
+    EndOfFile,
+    Illegal,
+    Bottom,
 }
 
 impl TokenType {
-    fn from_literal(literal: &str) -> Self {
-        let lowered_literal = &literal.to_ascii_lowercase();
-        if KEYWORDS.contains_key(lowered_literal) {
-            *KEYWORDS.get(lowered_literal).unwrap()
-        } else {
-            Ident
+    fn from_literal(literal: String) -> Self {
+        match literal.as_str() {
+            "and" => TokenType::And,
+            "class" => TokenType::Class,
+            "if" => TokenType::If,
+            "else" => TokenType::Else,
+            "fn" => TokenType::Function,
+            "for" => TokenType::For,
+            "nil" => TokenType::Nil,
+            "or" => TokenType::Or,
+            "print" => TokenType::Print,
+            "return" => TokenType::Return,
+            "super" => TokenType::Super,
+            "true" => TokenType::True,
+            "false" => TokenType::False,
+            "var" => TokenType::Var,
+            "while" => TokenType::While,
+            _ => TokenType::Identifier(literal),
         }
     }
 }

@@ -3,8 +3,9 @@ type Integer = i64;
 pub enum BagError {
     ConversionFailure(String, Bag),
 }
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum Bag {
+    String(String),
     Integer(i64),
     Null,
     False,
