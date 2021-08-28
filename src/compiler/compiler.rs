@@ -1,6 +1,6 @@
+use crate::bag::{Bag, Object};
 use crate::code::Instruction;
 use crate::lexer::Scanner;
-use crate::object::Bag;
 use crate::token::{Token, TokenType};
 
 #[derive(Debug)]
@@ -56,6 +56,7 @@ pub enum ParseFn {
     Prefix,
     Number,
     Literal,
+    String,
 }
 
 #[derive(Debug)]
@@ -183,7 +184,7 @@ impl Compiler {
     pub fn compile(&mut self) -> Bytecode {
         self.compile_expression();
         self.expect_peek_and_consume(&TokenType::EndOfFile);
-        self.emit(Instruction::Return);
+        self.emit(Instruction::Pop);
         self.bytecode()
     }
 
@@ -204,11 +205,26 @@ impl Compiler {
 
         self.parse_precedence(rule.precedence.next());
 
-        let instruction = match operator.token_type() {
-            TokenType::Plus => Instruction::Add,
-            TokenType::Minus => Instruction::Subtract,
-            TokenType::Star => Instruction::Multiply,
-            TokenType::Slash => Instruction::Divide,
+        match operator.token_type() {
+            TokenType::Plus => self.emit(Instruction::Add),
+            TokenType::Minus => self.emit(Instruction::Subtract),
+            TokenType::Star => self.emit(Instruction::Multiply),
+            TokenType::Slash => self.emit(Instruction::Divide),
+            TokenType::BangEqual => {
+                self.emit(Instruction::Equal);
+                self.emit(Instruction::Not)
+            }
+            TokenType::EqualEqual => self.emit(Instruction::Equal),
+            TokenType::Greater => self.emit(Instruction::Greater),
+            TokenType::Less => self.emit(Instruction::Less),
+            TokenType::GreaterEqual => {
+                self.emit(Instruction::Less);
+                self.emit(Instruction::Not)
+            }
+            TokenType::LessEqual => {
+                self.emit(Instruction::Greater);
+                self.emit(Instruction::Not)
+            }
             _ => {
                 self.errors.push(ParserError::InvalidInfixFn {
                     token: Some(operator),
@@ -216,8 +232,6 @@ impl Compiler {
                 return;
             }
         };
-
-        self.emit(instruction);
     }
 
     fn compile_prefix(&mut self) {
@@ -226,8 +240,11 @@ impl Compiler {
         self.parse_precedence(Precedence::Prefix);
 
         match operator.token_type() {
-            &TokenType::Minus => {
+            TokenType::Minus => {
                 self.emit(Instruction::Negate);
+            }
+            TokenType::Bang => {
+                self.emit(Instruction::Not);
             }
             _ => self.errors.push(ParserError::InvalidPrefixFn {
                 token: Some(operator),
@@ -282,6 +299,11 @@ impl Compiler {
                 }
             }
             ParseFn::Literal => self.compile_literal(),
+            ParseFn::String => {
+                if self.parse_string() {
+                    self.advance();
+                }
+            }
         }
     }
 
@@ -298,7 +320,6 @@ impl Compiler {
 
     fn parse_integer_literal(&mut self) -> bool {
         let tok = self.tokens.current();
-        println!("{:?}", tok);
         match self.verify_value_type(tok, "parse_integer_literal") {
             Ok(_) => {
                 let value = tok.value().unwrap();
@@ -326,7 +347,7 @@ impl Compiler {
         match self.verify_value_type(tok, "parse_string") {
             Ok(_) => {
                 let value = tok.value().unwrap().clone();
-                self.emit_constant(Bag::String(value));
+                self.emit_constant(Bag::Obj(Object::String(value)));
                 return true;
             }
             Err(e) => self.errors.push(e),
@@ -440,6 +461,44 @@ fn get_rule(token_type: &TokenType) -> Rule {
         },
         TokenType::Nil => Rule {
             prefix: Some(ParseFn::Literal),
+            ..Default::default()
+        },
+        TokenType::Bang => Rule {
+            prefix: Some(ParseFn::Prefix),
+            ..Default::default()
+        },
+        TokenType::BangEqual => Rule {
+            infix: Some(ParseFn::Infix),
+            precedence: Precedence::Equality,
+            ..Default::default()
+        },
+        TokenType::EqualEqual => Rule {
+            infix: Some(ParseFn::Infix),
+            precedence: Precedence::Equality,
+            ..Default::default()
+        },
+        TokenType::Greater => Rule {
+            infix: Some(ParseFn::Infix),
+            precedence: Precedence::Comparison,
+            ..Default::default()
+        },
+        TokenType::GreaterEqual => Rule {
+            infix: Some(ParseFn::Infix),
+            precedence: Precedence::Comparison,
+            ..Default::default()
+        },
+        TokenType::Less => Rule {
+            infix: Some(ParseFn::Infix),
+            precedence: Precedence::Comparison,
+            ..Default::default()
+        },
+        TokenType::LessEqual => Rule {
+            infix: Some(ParseFn::Infix),
+            precedence: Precedence::Comparison,
+            ..Default::default()
+        },
+        TokenType::String(_) => Rule {
+            prefix: Some(ParseFn::String),
             ..Default::default()
         },
         _ => Rule::default(),

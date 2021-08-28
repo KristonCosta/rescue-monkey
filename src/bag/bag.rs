@@ -5,9 +5,9 @@ pub enum BagError {
 }
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum Bag {
-    String(String),
+    Obj(Object),
     Integer(i64),
-    Null,
+    Nil,
     False,
     True,
 }
@@ -25,8 +25,14 @@ impl Bag {
     pub fn get_truthy(&self) -> Result<bool, BagError> {
         match self {
             Bag::Integer(val) => Ok(*val != 0),
+            Bag::Nil => Ok(false),
             Bag::True => Ok(true),
             _ => Ok(false),
         }
     }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
+pub enum Object {
+    String(String),
 }

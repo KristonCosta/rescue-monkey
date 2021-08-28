@@ -3,11 +3,16 @@ use std::collections::HashMap;
 #[derive(PartialEq, Eq, Debug)]
 pub enum Instruction {
     Negate,
+    Not,
 
     Add,
     Subtract,
     Multiply,
     Divide,
+
+    Equal,
+    Greater,
+    Less,
 
     True,
     False,
@@ -15,7 +20,7 @@ pub enum Instruction {
 
     Constant(usize),
 
-    Return,
+    Pop,
 }
 
 impl Instruction {}

@@ -1,15 +1,17 @@
+mod bag;
 mod code;
 mod compiler;
 mod lexer;
-mod object;
 mod token;
-// mod vm;
+mod vm;
 
 use compiler::compiler::Compiler;
 use lexer::Scanner;
 
 use std::io;
 use std::io::BufRead;
+
+use crate::vm::VM;
 
 fn main() {
     let stream = io::stdin();
@@ -26,8 +28,22 @@ fn main() {
 
                 let mut compiler = Compiler::new(tokens);
                 let bytecode = compiler.compile();
-                println!("{:?}", bytecode);
-                println!("{:?}", compiler.errors());
+
+                if !compiler.errors().is_empty() {
+                    for error in compiler.errors() {
+                        println!("{:?}", error);
+                    }
+                    continue;
+                }
+
+                let mut vm = VM::new(bytecode);
+                let err = vm.run();
+                if let Err(e) = err {
+                    println!("{:?}", e);
+                    continue;
+                }
+                println!("{:?}", vm.last_popped);
+
                 // let parser = &mut parser::parser::Parser::new(tokens);
                 // let program = parser.parse();
                 // if !parser.errors().is_empty() {
