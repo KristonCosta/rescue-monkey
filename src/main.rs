@@ -1,3 +1,6 @@
+#![feature(arbitrary_enum_discriminant)]
+#![feature(core_intrinsics)]
+
 mod bag;
 mod code;
 mod compiler;
@@ -18,17 +21,16 @@ fn main() {
     let mut reader = stream.lock();
     let mut line = String::new();
     let running = true;
-
+    let mut line_number = 1;
     while running {
         match reader.read_line(&mut line) {
             Ok(_) => {
-                let tokens = Scanner::from_string(&line);
-
+                let mut tokens = Scanner::from_string(&line, line_number);
                 line.clear();
 
                 let mut compiler = Compiler::new(tokens);
                 let bytecode = compiler.compile();
-
+                println!("{}", bytecode);
                 if !compiler.errors().is_empty() {
                     for error in compiler.errors() {
                         println!("{:?}", error);
@@ -43,7 +45,7 @@ fn main() {
                     continue;
                 }
                 println!("{:?}", vm.last_popped);
-
+                line_number += 1;
                 // let parser = &mut parser::parser::Parser::new(tokens);
                 // let program = parser.parse();
                 // if !parser.errors().is_empty() {

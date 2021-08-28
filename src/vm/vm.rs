@@ -1,22 +1,31 @@
-use crate::bag::Object;
+use std::cmp::Ordering;
+
 use crate::code::Instruction;
 
 use crate::bag::Bag;
 use crate::bag::BagError;
-use crate::compiler::compiler::Bytecode;
+use crate::code::Bytecode;
 
 #[derive(Debug)]
 pub enum VMError {
     ProgramNotStarted,
     StackOverflow,
     EmptyStackPop,
-    InvalidArgument(String, Bag),
+    InvalidArgument(String, Bag, Option<Bag>),
 }
 
 impl From<BagError> for VMError {
     fn from(err: BagError) -> Self {
         match err {
-            BagError::ConversionFailure(expected, bag) => VMError::InvalidArgument(expected, bag),
+            BagError::ConversionFailure(expected, bag) => {
+                VMError::InvalidArgument(expected, bag, None)
+            }
+            BagError::InvalidInfixForArguments(operation, left, right) => {
+                VMError::InvalidArgument(operation, left, Some(right))
+            }
+            BagError::InvalidPrefixForArgument(operation, left) => {
+                VMError::InvalidArgument(operation, left, None)
+            }
         }
     }
 }
@@ -58,25 +67,25 @@ impl VM {
                     self.push(constant)?;
                 }
                 Instruction::Add => {
-                    let right = self.pop()?.get_int()?;
-                    let left = self.pop()?.get_int()?;
-                    self.push(Bag::Integer(left + right))?;
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+                    self.push((left + right)?)?;
                 }
                 Instruction::Pop => self.last_popped = self.pop()?,
                 Instruction::Subtract => {
-                    let right = self.pop()?.get_int()?;
-                    let left = self.pop()?.get_int()?;
-                    self.push(Bag::Integer(left - right))?;
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+                    self.push((left - right)?)?;
                 }
                 Instruction::Divide => {
-                    let right = self.pop()?.get_int()?;
-                    let left = self.pop()?.get_int()?;
-                    self.push(Bag::Integer(left / right))?;
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+                    self.push((left / right)?)?;
                 }
                 Instruction::Multiply => {
-                    let right = self.pop()?.get_int()?;
-                    let left = self.pop()?.get_int()?;
-                    self.push(Bag::Integer(left * right))?;
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+                    self.push((left * right)?)?;
                 }
                 Instruction::True => {
                     self.push(Bag::True)?;
@@ -89,16 +98,8 @@ impl VM {
                     let left = self.pop()?;
                     self.push(if left == right { Bag::True } else { Bag::False })?;
                 }
-                Instruction::Greater => {
-                    let right = self.pop()?;
-                    let left = self.pop()?;
-                    self.push(if left > right { Bag::True } else { Bag::False })?;
-                }
-                Instruction::Less => {
-                    let right = self.pop()?;
-                    let left = self.pop()?;
-                    self.push(if left < right { Bag::True } else { Bag::False })?;
-                }
+                Instruction::Greater => self.binary_compare(Ordering::Greater)?,
+                Instruction::Less => self.binary_compare(Ordering::Less)?,
                 Instruction::Not => {
                     let left = self.pop()?;
                     if left.get_truthy()? {
@@ -108,8 +109,8 @@ impl VM {
                     }
                 }
                 Instruction::Negate => {
-                    let left = self.pop()?.get_int()?;
-                    self.push(Bag::Integer(-left))?;
+                    let left = self.pop()?;
+                    self.push((-left)?)?;
                 }
                 // Instruction::Jump(instr) => {
                 //     ip = *instr;
@@ -147,6 +148,25 @@ impl VM {
             Ok(std::mem::replace(
                 &mut self.stack[self.stack_pointer],
                 Bag::Nil,
+            ))
+        }
+    }
+
+    pub fn binary_compare(&mut self, desired_order: Ordering) -> Result<(), VMError> {
+        let right = self.pop()?;
+        let left = self.pop()?;
+        if let Some(order) = left.partial_cmp(&right) {
+            self.push(if order == desired_order {
+                Bag::True
+            } else {
+                Bag::False
+            })?;
+            Ok(())
+        } else {
+            Err(VMError::InvalidArgument(
+                "could not compare bags".to_string(),
+                left,
+                Some(right),
             ))
         }
     }

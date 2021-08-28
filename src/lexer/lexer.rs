@@ -5,7 +5,7 @@ use std::vec::IntoIter;
 struct Lexer {
     chars: Peekable<IntoIter<char>>,
     tok: char,
-    line: u64,
+    line: u32,
 }
 
 impl Lexer {
@@ -174,8 +174,9 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn from_string(input: &str) -> Self {
+    pub fn from_string(input: &str, line: u32) -> Self {
         let mut lexer = Lexer::from_string(input);
+        lexer.line = line;
         let current = lexer.next();
         let next = lexer.next();
         Self {

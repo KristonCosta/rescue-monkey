@@ -9,15 +9,15 @@ pub enum TokenError {
 #[derive(Clone, Debug)]
 pub struct Token {
     pub _type: TokenType,
-    pub line: u64,
+    pub line: u32,
 }
 
 impl Token {
-    pub fn new(_type: TokenType, line: u64) -> Self {
+    pub fn new(_type: TokenType, line: u32) -> Self {
         Token { _type, line }
     }
 
-    pub fn from_literal(literal: String, line: u64) -> Self {
+    pub fn from_literal(literal: String, line: u32) -> Self {
         let _type = TokenType::from_literal(literal);
         Token { _type, line }
     }
@@ -121,6 +121,7 @@ impl TokenType {
             "true" => TokenType::True,
             "false" => TokenType::False,
             "var" => TokenType::Var,
+            "this" => TokenType::This,
             "while" => TokenType::While,
             _ => TokenType::Identifier(literal),
         }
